@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TrendPulse • Real-Time Social Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600&amp;display=swap');
+        
+        :root {
+            --primary: 234 179 8;
+        }
+        
+        body {
+            font-family: 'Inter', system_ui, sans-serif;
+        }
+        
+        .logo-font {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .trend-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .trend-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+        }
+
+        .live-dot {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        .modal {
+            animation: modalPop 0.3s ease forwards;
+        }
+        
+        @keyframes modalPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .chart-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body class="bg-zinc-950 text-white h-full overflow-hidden">
+    <div class="flex h-screen">
+        <!-- SIDEBAR -->
+        <div class="w-72 bg-zinc-900 border-r border-zinc-800 flex flex-col">
+            <!-- Logo -->
+            <div class="px-8 py-8 border-b border-zinc-800">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-yellow-400 rounded-2xl flex items-center justify-center text-zinc-950 font-bold text-3xl logo-font">T</div>
+                    <div>
+                        <span class="logo-font text-4xl font-semibold tracking-tighter">Trend</span>
+                        <span class="logo-font text-4xl font-semibold tracking-tighter text-yellow-400">Pulse</span>
+                    </div>
+                </div>
+                <p class="text-xs text-zinc-500 mt-1 pl-1">Real-time social intelligence</p>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 px-4 py-6 space-y-1">
+                <a onclick="switchTab(0)" class="nav-item flex items-center gap-3 px-6 py-4 rounded-3xl text-sm font-medium bg-yellow-400/10 text-yellow-400 active">
+                    <i class="fas fa-home text-lg w-5"></i>
+                    <span>Dashboard</span>
+                </a>
+                <a onclick="switchTab(1)" class="nav-item flex items-center gap-3 px-6 py-4 rounded-3xl text-sm font-medium hover:bg-zinc-800 transition-colors">
+                    <i class="fas fa-fire text-lg w-5"></i>
+                    <span>Live Trends</span>
+                </a>
+                <a onclick="switchTab(2)" class="nav-item flex items-center gap-3 px-6 py-4 rounded-3xl text-sm font-medium hover:bg-zinc-800 transition-colors">
+                    <i class="fas fa-chart-line text-lg w-5"></i>
+                    <span>Analytics</span>
+                </a>
+                <a onclick="switchTab(3)" class="nav-item flex items-center gap-3 px-6 py-4 rounded-3xl text-sm font-medium hover:bg-zinc-800 transition-colors">
+                    <i class="fas fa-plug text-lg w-5"></i>
+                    <span>Sources</span>
+                    <span class="ml-auto bg-emerald-400 text-[10px] px-2 py-0.5 rounded-full font-mono text-emerald-950">LIVE</span>
+                </a>
+            </nav>
+
+            <!-- Quick Stats -->
+            <div class="mx-6 mb-8 bg-zinc-950 rounded-3xl p-5 border border-zinc-800">
+                <div class="flex justify-between text-xs text-zinc-500 mb-4">
+                    <div>CONNECTED SOURCES</div>
+                    <div class="text-emerald-400 font-medium">4/5</div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="flex-1 bg-zinc-900 rounded-2xl p-3 text-center">
+                        <i class="fab fa-x-twitter text-blue-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 bg-zinc-900 rounded-2xl p-3 text-center">
+                        <i class="fab fa-instagram text-pink-400 text-xl"></i>
+                    </div>
+                    <div class="flex-1 bg-zinc-900 rounded-2xl p-3 text-center">
+                        <i class="fab fa-reddit text-orange-400 text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-6 border-t border-zinc-800 text-xs text-zinc-500 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-emerald-400 rounded-full live-dot"></div>
+                    <span class="font-mono">LIVE</span>
+                </div>
+                <button onclick="refreshAll()" 
+                        class="flex items-center gap-2 text-yellow-400 hover:text-yellow-300 transition-colors">
+                    <i class="fas fa-sync-alt"></i>
+                    <span class="text-xs">Refresh now</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN CONTENT -->
+        <div class="flex-1 flex flex-col overflow-hidden">
+            <!-- TOP BAR -->
+            <div class="h-16 bg-zinc-900 border-b border-zinc-800 px-8 flex items-center justify-between">
+                <div class="flex items-center gap-6">
+                    <div class="relative">
+                        <input id="searchInput" 
+                               onkeyup="if(event.key === 'Enter') searchTrend()"
+                               type="text" 
+                               placeholder="Search any topic or hashtag..." 
+                               class="bg-zinc-800 border border-zinc-700 focus:border-yellow-400 w-96 pl-12 py-3 rounded-3xl text-sm focus:outline-none transition-all">
+                        <i class="fas fa-search absolute left-5 top-1/2 -translate-y-1/2 text-zinc-500"></i>
+                    </div>
+                    
+                    <div onclick="toggleSources()" 
+                         class="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 cursor-pointer px-5 py-2 rounded-3xl text-sm transition-colors">
+                        <i class="fas fa-filter"></i>
+                        <span id="activeSourcesCount">All sources</span>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-6">
+                    <!-- Real-time indicator -->
+                    <div class="flex items-center gap-2 bg-zinc-800 px-5 py-2 rounded-3xl text-xs font-medium">
+                        <div class="w-2 h-2 bg-emerald-400 rounded-full live-dot"></div>
+                        <span>Real-time data stream active</span>
+                        <span id="lastUpdate" class="font-mono text-zinc-500 text-[10px]">just now</span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleNotifications()" 
+                                class="relative w-10 h-10 flex items-center justify-center hover:bg-zinc-800 rounded-2xl transition-colors">
+                            <i class="fas fa-bell text-xl"></i>
+                            <div id="notifBadge" 
+                                 class="absolute top-2 right-2 w-4 h-4 bg-red-500 text-[9px] font-bold flex items-center justify-center rounded-full">3</div>
+                        </button>
+                        
+                        <div class="flex items-center gap-3 pl-6 border-l border-zinc-700">
+                            <div class="text-right">
+                                <div class="text-sm font-medium">Alex Rivera</div>
+                                <div class="text-[10px] text-zinc-500">Analyst</div>
+                            </div>
+                            <div class="w-9 h-9 bg-gradient-to-br from-yellow-400 to-amber-600 rounded-2xl flex items-center justify-center text-xl font-bold">AR</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DASHBOARD BODY -->
+            <div class="flex-1 overflow-auto p-8 bg-zinc-950">
+                <!-- KPI ROW -->
+                <div class="grid grid-cols-4 gap-6 mb-8">
+                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-xs tracking-widest text-zinc-500 font-medium">TRENDING TOPICS</div>
+                                <div id="kpiTopics" class="text-5xl font-semibold mt-2 tabular-nums">142</div>
+                            </div>
+                            <div class="w-12 h-12 bg-yellow-400/10 text-yellow-400 flex items-center justify-center rounded-2xl">
+                                <i class="fas fa-fire text-3xl"></i>
+                            </div>
+                        </div>
+                        <div class="text-emerald-400 text-sm flex items-center gap-1 mt-6">
+                            <i class="fas fa-arrow-trend-up"></i>
+                            <span id="kpiTopicsChange">+18 this hour</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-xs tracking-widest text-zinc-500 font-medium">AVG ENGAGEMENT</div>
+                                <div id="kpiEngagement" class="text-5xl font-semibold mt-2 tabular-nums">2.4M</div>
+                            </div>
+                            <div class="w-12 h-12 bg-blue-400/10 text-blue-400 flex items-center justify-center rounded-2xl">
+                                <i class="fas fa-heart text-3xl"></i>
+                            </div>
+                        </div>
+                        <div class="text-emerald-400 text-sm flex items-center gap-1 mt-6">
+                            <i class="fas fa-arrow-trend-up"></i>
+                            <span id="kpiEngagementChange">↑ 34%</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-xs tracking-widest text-zinc-500 font-medium">SENTIMENT SCORE</div>
+                                <div id="kpiSentiment" class="text-5xl font-semibold mt-2">+0.87</div>
+                            </div>
+                            <div class="w-12 h-12 bg-emerald-400/10 text-emerald-400 flex items-center justify-center rounded-2xl">
+                                <i class="fas fa-smile text-3xl"></i>
+                            </div>
+                        </div>
+                        <div class="text-emerald-400 text-sm flex items-center gap-1 mt-6">
+                            <span class="font-medium">Mostly positive across platforms</span>
+                        </div>
+                    </div>
+
+                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 relative overflow-hidden">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="text-xs tracking-widest text-zinc-500 font-medium">TREND VELOCITY</div>
+                                <div id="kpiVelocity" class="text-5xl font-semibold mt-2">87</div>
+                            </div>
+                            <div class="w-12 h-12 bg-purple-400/10 text-purple-400 flex items-center justify-center rounded-2xl">
+                                <i class="fas fa-rocket text-3xl"></i>
+                            </div>
+                        </div>
+                        <div class="absolute bottom-6 right-6 text-[10px] bg-purple-400 text-purple-950 px-3 py-1 rounded-2xl font-medium">HIGH</div>
+                    </div>
+                </div>
+
+                <!-- MAIN GRID -->
+                <div class="grid grid-cols-12 gap-6">
+                    
+                    <!-- LIVE TRENDS -->
+                    <div class="col-span-7 bg-zinc-900 rounded-3xl p-8 border border-zinc-800">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="font-semibold text-lg flex items-center gap-3">
+                                <i class="fas fa-bolt text-yellow-400"></i>
+                                LIVE TRENDS
+                            </div>
+                            <div onclick="showAllTrends()" 
+                                 class="text-yellow-400 text-sm cursor-pointer flex items-center gap-1 hover:underline">
+                                View all 
+                                <i class="fas fa-arrow-right text-xs"></i>
+                            </div>
+                        </div>
+
+                        <div id="trendsContainer" class="space-y-4">
+                            <!-- Populated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- CHARTS -->
+                    <div class="col-span-5 space-y-6">
+                        <!-- Trend Growth Chart -->
+                        <div class="bg-zinc-900 rounded-3xl p-8 border border-zinc-800 h-80">
+                            <div class="flex justify-between mb-6">
+                                <div class="font-medium">Trend Momentum (last 60 min)</div>
+                                <div class="flex gap-2 text-xs">
+                                    <div onclick="changeChartMode(0)" id="mode0" 
+                                         class="px-4 py-1 bg-yellow-400 text-zinc-950 rounded-3xl cursor-pointer">All</div>
+                                    <div onclick="changeChartMode(1)" id="mode1" 
+                                         class="px-4 py-1 hover:bg-zinc-800 rounded-3xl cursor-pointer">X</div>
+                                    <div onclick="changeChartMode(2)" id="mode2" 
+                                         class="px-4 py-1 hover:bg-zinc-800 rounded-3xl cursor-pointer">IG</div>
+                                </div>
+                            </div>
+                            <div class="chart-container h-60">
+                                <canvas id="momentumChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Probability Breakdown -->
+                        <div class="bg-zinc-900 rounded-3xl p-8 border border-zinc-800">
+                            <div class="font-medium mb-6">Probability of Continuation (24h)</div>
+                            <div class="chart-container h-56">
+                                <canvas id="probabilityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SOURCE DISTRIBUTION -->
+                    <div class="col-span-12 bg-zinc-900 rounded-3xl p-8 border border-zinc-800">
+                        <div class="flex justify-between items-center mb-8">
+                            <div class="font-medium text-lg">Real-time Source Distribution</div>
+                            <div class="flex gap-6 text-xs">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 bg-blue-400 rounded"></div>
+                                    <span>X (Twitter)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 bg-pink-400 rounded"></div>
+                                    <span>Instagram</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 bg-orange-400 rounded"></div>
+                                    <span>Reddit</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 bg-cyan-400 rounded"></div>
+                                    <span>News</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="h-80">
+                            <canvas id="sourceChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STATUS BAR -->
+            <div class="h-10 bg-zinc-900 border-t border-zinc-800 px-8 flex items-center text-xs text-zinc-500 font-mono justify-between">
+                <div>Data updated <span id="updateTime" class="text-emerald-400">0 seconds ago</span></div>
+                <div class="flex items-center gap-8">
+                    <div>Powered by simulated real-time APIs • Ready for production integration</div>
+                    <button onclick="exportDashboard()" 
+                            class="flex items-center gap-2 text-yellow-400 hover:text-white transition-colors">
+                        <i class="fas fa-download"></i>
+                        <span>Export report</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: SELECTED TREND DETAIL -->
+        <div class="w-80 bg-zinc-900 border-l border-zinc-800 flex flex-col">
+            <div class="p-8 border-b border-zinc-800">
+                <div class="uppercase text-xs tracking-widest mb-2 text-zinc-500">Currently viewing</div>
+                <div id="selectedTrendName" class="text-2xl font-semibold">#AIRevolution</div>
+                <div id="selectedTrendSource" class="text-emerald-400 text-sm flex items-center gap-2">
+                    <i class="fab fa-x-twitter"></i>
+                    X • 1.8M mentions
+                </div>
+            </div>
+
+            <div class="flex-1 p-8 space-y-8 overflow-auto">
+                <!-- Probability Gauge -->
+                <div>
+                    <div class="flex justify-between text-xs mb-3">
+                        <div>Probability of trending 24h more</div>
+                        <div id="detailProb" class="font-bold text-3xl text-yellow-400">92%</div>
+                    </div>
+                    <div class="h-3 bg-zinc-800 rounded-3xl overflow-hidden">
+                        <div id="probBar" class="h-full bg-gradient-to-r from-yellow-400 to-amber-500 w-[92%]"></div>
+                    </div>
+                </div>
+
+                <!-- Sentiment -->
+                <div>
+                    <div class="text-xs text-zinc-500 mb-4">SENTIMENT ANALYSIS</div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="text-center">
+                            <div class="text-emerald-400 text-4xl">68%</div>
+                            <div class="text-[10px] mt-1">POSITIVE</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-amber-400 text-4xl">24%</div>
+                            <div class="text-[10px] mt-1">NEUTRAL</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="text-red-400 text-4xl">8%</div>
+                            <div class="text-[10px] mt-1">NEGATIVE</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Insights -->
+                <div class="bg-zinc-950 rounded-3xl p-6 text-sm">
+                    <div class="font-medium mb-4 flex items-center gap-2">
+                        <i class="fas fa-lightbulb"></i>
+                        AI INSIGHTS
+                    </div>
+                    <ul id="insightsList" class="space-y-4 text-xs">
+                        <!-- JS populated -->
+                    </ul>
+                </div>
+
+                <!-- Velocity -->
+                <div class="text-xs">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-zinc-400">Mentions velocity (last 5 min)</span>
+                        <span id="velocityNumber" class="font-mono text-emerald-400">+2,847</span>
+                    </div>
+                    <div class="h-2 bg-zinc-800 rounded-full">
+                        <div class="w-3/4 h-2 bg-emerald-400 rounded-full"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-8 border-t border-zinc-800">
+                <button onclick="openFullReport()" 
+                        class="w-full py-4 bg-yellow-400 hover:bg-amber-300 transition-all text-zinc-950 font-semibold rounded-3xl flex items-center justify-center gap-3">
+                    OPEN FULL REPORT
+                    <i class="fas fa-arrow-up-right-from-square"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL -->
+    <div onclick="if(event.target.id==='modalOverlay') closeModal()" id="modalOverlay" 
+         class="hidden fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+        <div onclick="event.stopImmediatePropagation()" 
+             class="modal bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl overflow-hidden">
+            <div class="px-8 py-6 border-b flex items-center justify-between">
+                <div id="modalTrend" class="text-2xl font-semibold"></div>
+                <button onclick="closeModal()" class="text-3xl leading-none text-zinc-400">×</button>
+            </div>
+            
+            <div class="p-8">
+                <div id="modalContent" class="space-y-8">
+                    <!-- JS filled -->
+                </div>
+            </div>
+            
+            <div class="px-8 py-6 border-t flex justify-end">
+                <button onclick="closeModal()" 
+                        class="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-3xl">Close analysis</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Tailwind script run
+        function initTailwind() {
+            // Already configured via CDN
+        }
+
+        // Sample data
+        let trends = [
+            {
+                id: 1,
+                topic: "#AIRevolution",
+                source: "X",
+                icon: "fa-x-twitter",
+                mentions: 1840000,
+                prob: 92,
+                sentiment: 87,
+                color: "text-blue-400",
+                velocity: 2847
+            },
+            {
+                id: 2,
+                topic: "Tesla Optimus",
+                source: "Instagram",
+                icon: "fa-instagram",
+                mentions: 892000,
+                prob: 76,
+                sentiment: 65,
+                color: "text-pink-400",
+                velocity: 1240
+            },
+            {
+                id: 3,
+                topic: "#CryptoBullRun",
+                source: "Reddit",
+                icon: "fa-reddit",
+                mentions: 642000,
+                prob: 64,
+                sentiment: 42,
+                color: "text-orange-400",
+                velocity: 890
+            },
+            {
+                id: 4,
+                topic: "OpenAI o3",
+                source: "News",
+                icon: "fa-newspaper",
+                mentions: 1240000,
+                prob: 81,
+                sentiment: 91,
+                color: "text-cyan-400",
+                velocity: 3120
+            }
+        ]
+
+        let momentumData = {
+            labels: ["0", "10", "20", "30", "40", "50", "60"],
+            datasets: [
+                { label: '#AIRevolution', data: [42, 58, 67, 81, 94, 103, 128], borderColor: '#facc15', tension: 0.4 },
+                { label: 'Tesla Optimus', data: [23, 31, 44, 52, 59, 68, 75], borderColor: '#ec4899', tension: 0.4 }
+            ]
+        }
+
+        let currentChartMode = 0
+
+        // Charts
+        let momentumChart, probabilityChart, sourceChart
+
+        function createCharts() {
+            // Momentum chart
+            const momCtx = document.getElementById('momentumChart')
+            momentumChart = new Chart(momCtx, {
+                type: 'line',
+                data: momentumData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: true, position: 'top', labels: { color: '#a1a1aa', usePointStyle: true } } },
+                    scales: {
+                        y: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } },
+                        x: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } }
+                    },
+                    elements: { point: { radius: 0, hoverRadius: 5 } }
+                }
+            })
+
+            // Probability doughnut
+            const probCtx = document.getElementById('probabilityChart')
+            probabilityChart = new Chart(probCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['#AIRevolution', 'Tesla Optimus', '#CryptoBullRun', 'OpenAI o3'],
+                    datasets: [{
+                        data: [92, 76, 64, 81],
+                        backgroundColor: ['#facc15', '#ec4899', '#f97316', '#22d3ee'],
+                        borderWidth: 0,
+                        hoverOffset: 20
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#a1a1aa', padding: 20 } }
+                    }
+                }
+            })
+
+            // Source bar chart
+            const sourceCtx = document.getElementById('sourceChart')
+            sourceChart = new Chart(sourceCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['X', 'Instagram', 'Reddit', 'News'],
+                    datasets: [{
+                        label: 'Mentions (millions)',
+                        data: [8.4, 3.1, 1.8, 4.7],
+                        backgroundColor: ['#1e40af', '#db2777', '#c2410c', '#164e63'],
+                        borderRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        y: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } },
+                        x: { grid: { color: '#27272a' }, ticks: { color: '#a1a1aa' } }
+                    }
+                }
+            })
+        }
+
+        function renderTrends() {
+            const container = document.getElementById('trendsContainer')
+            container.innerHTML = ''
+
+            trends.forEach((trend, index) => {
+                const div = document.createElement('div')
+                div.className = `trend-card flex gap-6 items-center bg-zinc-950 border border-zinc-800 hover:border-yellow-400 p-5 rounded-3xl cursor-pointer`
+                div.innerHTML = `
+                    <div class="flex-1 flex items-center gap-4">
+                        <i class="fas ${trend.icon} ${trend.color} text-3xl w-10"></i>
+                        <div>
+                            <div class="font-semibold text-lg">${trend.topic}</div>
+                            <div class="text-xs text-zinc-500">${trend.source}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="text-right">
+                        <div class="text-xs text-zinc-400">mentions</div>
+                        <div class="font-mono text-2xl font-medium tabular-nums">${(trend.mentions / 1000000).toFixed(1)}M</div>
+                    </div>
+
+                    <div class="w-36">
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Probability</span>
+                            <span class="font-medium">${trend.prob}%</span>
+                        </div>
+                        <div class="h-2 bg-zinc-800 rounded-3xl overflow-hidden">
+                            <div class="h-2 bg-yellow-400" style="width: ${trend.prob}%"></div>
+                        </div>
+                    </div>
+
+                    <button onclick="event.stopImmediatePropagation(); showTrendDetail(${index});" 
+                            class="px-6 py-3 bg-yellow-400 hover:bg-amber-300 text-zinc-950 text-sm font-medium rounded-3xl transition-colors">
+                        ANALYZE
+                    </button>
+                `
+                div.onclick = () => showTrendDetail(index)
+                container.appendChild(div)
+            })
+        }
+
+        function updateKPIs() {
+            document.getElementById('kpiTopics').textContent = Math.floor(Math.random() * 40) + 142
+            document.getElementById('kpiEngagement').textContent = (Math.random() * 1.2 + 2.3).toFixed(1) + "M"
+            document.getElementById('kpiSentiment').textContent = (Math.random() * 0.3 + 0.78).toFixed(2)
+            document.getElementById('kpiVelocity').textContent = Math.floor(Math.random() * 30) + 82
+        }
+
+        function updateLiveData() {
+            // Randomly increase mentions and tweak probabilities
+            trends.forEach(trend => {
+                const increase = Math.floor(Math.random() * 42000) + 8000
+                trend.mentions += increase
+                trend.prob = Math.min(98, Math.max(50, trend.prob + (Math.random() * 6 - 3)))
+                trend.velocity = Math.floor(Math.random() * 800) + 900
+            })
+
+            // Update charts
+            if (momentumChart) {
+                momentumData.datasets[0].data.push(Math.random() * 40 + 110)
+                momentumData.datasets[0].data.shift()
+                momentumData.datasets[1].data.push(Math.random() * 30 + 70)
+                momentumData.datasets[1].data.shift()
+                momentumChart.update()
+            }
+
+            if (probabilityChart) {
+                probabilityChart.data.datasets[0].data = trends.map(t => t.prob)
+                probabilityChart.update()
+            }
+
+            if (sourceChart) {
+                sourceChart.data.datasets[0].data = [
+                    (trends[0].mentions / 1000000).toFixed(1),
+                    (trends[1].mentions / 1000000).toFixed(1),
+                    (trends[2].mentions / 1000000).toFixed(1),
+                    (trends[3].mentions / 1000000).toFixed(1)
+                ]
+                sourceChart.update()
+            }
+
+            renderTrends()
+            updateKPIs()
+
+            // Update timestamp
+            const now = new Date()
+            document.getElementById('lastUpdate').textContent = "just now"
+            document.getElementById('updateTime').textContent = "0 seconds ago"
+            
+            setTimeout(() => {
+                document.getElementById('updateTime').textContent = Math.floor(Math.random() * 9 + 2) + " seconds ago"
+            }, 12000)
+        }
+
+        function showTrendDetail(index) {
+            const trend = trends[index]
+            
+            document.getElementById('selectedTrendName').textContent = trend.topic
+            document.getElementById('selectedTrendSource').innerHTML = `
+                <i class="fas ${trend.icon}"></i> 
+                ${trend.source} • ${(trend.mentions / 1000000).toFixed(1)}M mentions
+            `
+            document.getElementById('detailProb').textContent = trend.prob + "%"
+            document.getElementById('probBar').style.width = trend.prob + "%"
+            document.getElementById('velocityNumber').textContent = "+" + trend.velocity.toLocaleString()
+
+            // Fake insights
+            const insightsHTML = `
+                <li class="flex gap-3"><i class="fas fa-check text-emerald-400 mt-1"></i><span>Strong correlation with #OpenAI announcements</span></li>
+                <li class="flex gap-3"><i class="fas fa-check text-emerald-400 mt-1"></i><span>92% probability of sustained growth for next 24h</span></li>
+                <li class="flex gap-3"><i class="fas fa-check text-emerald-400 mt-1"></i><span>Peak engagement expected in next 40 minutes</span></li>
+            `
+            document.getElementById('insightsList').innerHTML = insightsHTML
+
+            // Highlight selected card
+            renderTrends()
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.nav-item').forEach((el, i) => {
+                if (i === tab) {
+                    el.classList.add('bg-yellow-400/10', 'text-yellow-400')
+                } else {
+                    el.classList.remove('bg-yellow-400/10', 'text-yellow-400')
+                }
+            })
+            // In a full app this would switch views, but here we keep single dashboard
+        }
+
+        function changeChartMode(mode) {
+            currentChartMode = mode
+            document.querySelectorAll('[id^="mode"]').forEach(el => el.classList.remove('bg-yellow-400', 'text-zinc-950'))
+            document.getElementById('mode' + mode).classList.add('bg-yellow-400', 'text-zinc-950')
+            
+            // Simulate data change
+            if (momentumChart) {
+                if (mode === 1) {
+                    momentumChart.data.datasets[1].hidden = true
+                } else if (mode === 2) {
+                    momentumChart.data.datasets[0].hidden = true
+                } else {
+                    momentumChart.data.datasets[0].hidden = false
+                    momentumChart.data.datasets[1].hidden = false
+                }
+                momentumChart.update()
+            }
+        }
+
+        function showAllTrends() {
+            alert("In a full production version this would open an expanded table with 200+ trending topics sorted by velocity 🔥")
+        }
+
+        function toggleSources() {
+            const count = document.getElementById('activeSourcesCount')
+            if (count.textContent === "All sources") {
+                count.textContent = "X + Instagram"
+            } else if (count.textContent === "X + Instagram") {
+                count.textContent = "All sources"
+            }
+            updateLiveData()
+        }
+
+        function toggleNotifications() {
+            const badge = document.getElementById('notifBadge')
+            if (parseInt(badge.textContent) > 0) {
+                badge.style.opacity = 0
+                setTimeout(() => {
+                    badge.textContent = "0"
+                    badge.style.opacity = 1
+                }, 800)
+            }
+        }
+
+        function openFullReport() {
+            const modal = document.getElementById('modalOverlay')
+            const content = document.getElementById('modalContent')
+            
+            content.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="mx-auto w-16 h-16 bg-yellow-400 rounded-2xl flex items-center justify-center mb-6">
+                        <i class="fas fa-file-pdf text-4xl text-zinc-950"></i>
+                    </div>
+                    <div class="text-2xl font-medium mb-2">Full Trend Report</div>
+                    <div class="max-w-xs mx-auto text-zinc-400 text-sm">
+                        This would contain 18-page PDF export with historical graphs, competitor comparison, 
+                        and probability forecasts powered by your real API keys.
+                    </div>
+                    <div class="mt-10 text-yellow-400 text-sm flex items-center justify-center gap-2 cursor-pointer hover:underline">
+                        <i class="fas fa-download"></i> 
+                        DOWNLOAD PDF (demo)
+                    </div>
+                </div>
+            `
+            modal.classList.remove('hidden')
+            modal.classList.add('flex')
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modalOverlay')
+            modal.classList.add('hidden')
+            modal.classList.remove('flex')
+        }
+
+        function searchTrend() {
+            const query = document.getElementById('searchInput').value.trim()
+            if (!query) return
+            
+            // Simulate search result
+            const found = trends.find(t => t.topic.toLowerCase().includes(query.toLowerCase()))
+            if (found) {
+                const index = trends.indexOf(found)
+                showTrendDetail(index)
+            } else {
+                alert(`No exact match for "${query}"\n\nBut we found similar: #AIRevolution is trending at 92% probability right now!`)
+            }
+            document.getElementById('searchInput').value = ''
+        }
+
+        function refreshAll() {
+            const btns = document.querySelectorAll('button')
+            btns.forEach(b => {
+                if (b.textContent.includes('Refresh')) b.innerHTML = `<i class="fas fa-spinner fa-spin"></i>`
+            })
+            
+            setTimeout(() => {
+                updateLiveData()
+                document.querySelectorAll('button').forEach(b => {
+                    if (b.textContent.includes('Refresh')) b.innerHTML = `<i class="fas fa-sync-alt"></i><span class="text-xs ml-2">Refresh now</span>`
+                })
+            }, 1200)
+        }
+
+        function exportDashboard() {
+            alert("✅ Dashboard exported as TrendPulse-Report-" + new Date().toISOString().slice(0,10) + ".png\n\n(In real app this would trigger a beautiful screenshot or PDF)")
+        }
+
+        // Real-time simulation loop
+        function startRealTime() {
+            setInterval(() => {
+                updateLiveData()
+            }, 3400)
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if (e.metaKey && e.key === "k") {
+                e.preventDefault()
+                document.getElementById('searchInput').focus()
+            }
+        })
+
+        // Initialize everything
+        window.onload = function() {
+            initTailwind()
+            createCharts()
+            renderTrends()
+            updateKPIs()
+            showTrendDetail(0) // show first trend by default
+            
+            // First live update
+            setTimeout(() => {
+                updateLiveData()
+            }, 800)
+
+            // Start continuous real-time
+            startRealTime()
+
+            // Random notification demo
+            setTimeout(() => {
+                const badge = document.getElementById('notifBadge')
+                badge.textContent = '7'
+                badge.style.backgroundColor = '#eab308'
+            }, 4500)
+
+            console.log('%c✅ TrendPulse Dashboard ready! Data updating live every 3.4 seconds.', 'color:#facc15; font-family:monospace')
+        }
+    </script>
+</body>
+</html>
